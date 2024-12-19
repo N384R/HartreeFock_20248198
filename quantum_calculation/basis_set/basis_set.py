@@ -12,7 +12,6 @@ class BasisSet:
 
     Attributes:
     basis_set_name (str): Name of the basis set.
-    basis_set_file (str): File containing the basis set.
     basis_set (dict): Dictionary containing the basis set.
     '''
 

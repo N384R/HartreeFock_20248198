@@ -25,7 +25,7 @@ class HartreeFock:
         self.eigenvectors = None
 
         self.coordinates = self.set_coordinates(molecule)
-        self.basis_functions = self.set_contracted_gaussian(self.coordinates)
+        self.basis_functions = self.set_basis_function(self.coordinates)
         self.overlap_integral = self.calculate_overlap()
 
     def set_coordinates(self, molecule):
@@ -38,20 +38,23 @@ class HartreeFock:
             coordinates.append({'symbol': symbol, 'coord': (x, y, z)})
         return coordinates
 
-    def set_contracted_gaussian(self, coordinates):
+    def set_basis_function(self, coordinates):
         '''Set the contracted Gaussian basis functions for an atom.'''
 
         symbols = [coord['symbol'] for coord in coordinates]
-        contracted_gaussian = {}
-        alpha = []
-        d = []
-        for symbol in symbols:
+        alpha, d, indices = [], [], []
+        for idx, symbol in enumerate(symbols):
             for primitive in self.basis_set[symbol]['basis'].values():
                 alpha.append(primitive[:, 0])
                 d.append(primitive[:, 1])
-            contracted_gaussian['alpha'] = np.vstack(alpha)
-            contracted_gaussian['d'] = np.vstack(d)
-        return contracted_gaussian
+                indices.append(idx)
+
+        contracted_gaussians = {
+            'alpha': [np.array(a) for a in alpha],
+            'd': [np.array(coeff) for coeff in d],
+            'indices': indices
+        }
+        return contracted_gaussians
 
     def calculate_overlap(self):
         '''Calculate the overlap matrix.'''
@@ -66,7 +69,9 @@ class HartreeFock:
     def __overlap_ij(self, i, j):
         a = self.basis_functions['alpha']
         d = self.basis_functions['d']
-        ri, rj = self.coordinates[i]['coord'], self.coordinates[j]['coord']
+        idx = self.basis_functions['indices']
+        ri = self.coordinates[idx[i]]['coord']
+        rj = self.coordinates[idx[j]]['coord']
         rij = np.linalg.norm(np.array(ri) - np.array(rj))
         overlap_ij = 0.0
         for k, _ in enumerate(a[i]):
