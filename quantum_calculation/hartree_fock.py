@@ -1,18 +1,3 @@
-'''
-Hartree-Fock calculations are a way to approximate the wavefunction of a molecule. 
-The wavefunction is approximated as a single Slater determinant, 
-which is a product of molecular orbitals. 
-
-The molecular orbitals are obtained by solving the Hartree-Fock equations, 
-which are a set of self-consistent field equations.
-The Hartree-Fock equations are solved iteratively until convergence is reached.
-
-The Hartree-Fock method is a mean-field theory,
-which means that it does not include electron correlation effects. 
-However, it is a good starting point for more advanced quantum chemistry methods 
-that do include electron correlation effects.
-'''
-
 import numpy as np
 from .basis_set.basis_set import BasisSet
 
