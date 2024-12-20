@@ -18,9 +18,10 @@ class HartreeFock:
     eigenvectors (np.ndarray): Eigenvectors of the molecule.
     '''
 
-    def __init__(self, molecule, basis_set_name):
+    def __init__(self, molecule, basis_set_name, spin=0):
         self.molecule = molecule
         self.basis_set = BasisSet(basis_set_name)
+        self.spin = spin
         self.energy_elec = None
         self.energy_total = None
         self.eigenvectors = None
@@ -242,7 +243,7 @@ class HartreeFock:
             # Build the Fock matrix
             F = H_core.copy()
             for i, j, k, l in product(range(n), repeat=4):
-                F[i, j] += P[k, l] * (G[i, j, k, l] - 0.5 * G[i, l, k, j])
+                F[i, j] += P[k, l] * (G[i, j, k, l] - G[i, l, k, j]/2)
 
             # Diagonalize the Fock matrix
             F_prime = S_inv_sqrt @ F @ S_inv_sqrt
@@ -310,8 +311,9 @@ class HartreeFock:
         P_closed = np.zeros((n, n))
         P_open = np.zeros((n, n))
 
-        num_closed = 0
-        num_open = 2
+        num_electrons = sum(coord['charge'] for coord in self.coordinates)
+        num_open = self.spin * 2
+        num_closed = (num_electrons - num_open) // 2
 
         # SCF iterations
         energy = 0.0
@@ -319,9 +321,8 @@ class HartreeFock:
             # Build the Fock matrix
             F = H_core.copy()
             for i, j, k, l in product(range(n), repeat=4):
-                P_total = P_closed + P_open
-                F[i, j] += P_total[k, l] * (2 * G[i, j, k, l] - G[i, l, k, j])
-                F[i, j] += 0.5 * P_open[k, l] * G[i, l, k, j]
+                F[i, j] += P_closed[k, l] * (G[i, j, k, l] - G[i, l, k, j]/2)
+                F[i, j] += P_open[k, l] * (G[i, j, k, l] - G[i, l, k, j])
 
             # Diagonalize the Fock matrix
             F_prime = S_inv_sqrt @ F @ S_inv_sqrt
@@ -329,19 +330,17 @@ class HartreeFock:
 
             # eigenvectors to the original basis
             C = S_inv_sqrt @ eigvecs
-
             # update the density matrix
             P_new_closed = np.zeros_like(P_closed)
             P_new_open = np.zeros_like(P_open)
 
-            for i in range(num_closed // 2):
+            for i in range(num_closed):
                 P_new_closed += 2 * np.outer(C[:, i], C[:, i])
 
-            for i in range(num_closed // 2, num_closed // 2 + num_open):
+            for i in range(num_closed, num_closed + num_open):
                 P_new_open += np.outer(C[:, i], C[:, i])
 
             P_total_new = P_new_closed + P_new_open
-
             # Calculate the electronic energy
             electronic_energy = 0.5 * np.sum(P_total_new * (H_core + F))
 
