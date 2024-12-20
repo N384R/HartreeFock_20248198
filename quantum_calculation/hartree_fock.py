@@ -21,9 +21,8 @@ class HartreeFock:
     def __init__(self, molecule, basis_set_name):
         self.molecule = molecule
         self.basis_set = BasisSet(basis_set_name)
-        self.one_electron = None
-        self.two_electron = None
-        self.energy = None
+        self.energy_elec = None
+        self.energy_total = None
         self.eigenvectors = None
 
         self.coordinates = self.set_coordinates(molecule)
@@ -216,7 +215,6 @@ class HartreeFock:
 
     def __rhf(self):
         # Initialize the parameters
-        print("Preforming SCF calculation...")
         n = len(self.basis_functions['alpha'])  # Number of basis functions
         max_iter = 100
         convergence_threshold = 1e-6
@@ -241,8 +239,6 @@ class HartreeFock:
         # SCF iterations
         energy = 0.0
         for iteration in range(max_iter):
-            print(f"Iteration {iteration + 1}...", end='\r', flush=True)
-
             # Build the Fock matrix
             F = H_core.copy()
             for i, j, k, l in product(range(n), repeat=4):
@@ -267,7 +263,6 @@ class HartreeFock:
 
             # Check convergence
             if np.abs(electronic_energy - energy) < convergence_threshold:
-                print(f"SFC converged after {iteration + 1} iterations.")
                 break
 
             # Update the density matrix and energy
@@ -279,14 +274,20 @@ class HartreeFock:
 
         # Total energy
         total_energy = energy + nucl_rep
-        self.energy = total_energy
+        self.energy_elec = energy
+        self.energy_total = total_energy
         self.eigenvectors = C
+
+        print(f"SCF converged energy: {total_energy}")
 
         return total_energy, C
 
+    def rhf(self):
+        '''Perform Restricted Hartree-Fock calculation.'''
+        return self.__rhf()
+
     def __rohf(self):
         # Initialize the parameters
-        print("Preforming SCF calculation...")
         n = len(self.basis_functions['alpha'])  # Number of basis functions
         max_iter = 100
         convergence_threshold = 1e-6
@@ -315,8 +316,6 @@ class HartreeFock:
         # SCF iterations
         energy = 0.0
         for iteration in range(max_iter):
-            print(f"Iteration {iteration + 1}...", end='\r', flush=True)
-
             # Build the Fock matrix
             F = H_core.copy()
             for i, j, k, l in product(range(n), repeat=4):
@@ -348,7 +347,6 @@ class HartreeFock:
 
             # Check convergence
             if np.abs(electronic_energy - energy) < convergence_threshold:
-                print(f"SFC converged after {iteration + 1} iterations.")
                 break
 
             # Update the density matrix and energy
@@ -361,14 +359,13 @@ class HartreeFock:
 
         # Total energy
         total_energy = energy + nucl_rep
-        self.energy = total_energy
+        self.energy_elec = energy
+        self.energy_total = total_energy
         self.eigenvectors = C
 
-        return total_energy, C
+        print(f"SCF converged energy: {total_energy}")
 
-    def rhf(self):
-        '''Perform Restricted Hartree-Fock calculation.'''
-        return self.__rhf()
+        return total_energy, C
 
     def rohf(self):
         '''Perform Restricted Open-Shell Hartree-Fock calculation.'''
