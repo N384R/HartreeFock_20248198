@@ -5,10 +5,6 @@ import numpy as np
 def load_basis_set(basis_set_name):
     '''Load basis set from a file and store it in a dictionary.'''
 
-    # Split the basis set name into core and valence gaussians
-    core_count, valence_part = basis_set_name.split('-')
-    valence_count = list(valence_part[:2])
-
     base_dir = os.path.dirname(__file__)
     file_path = os.path.join(base_dir, basis_set_name)
     basis_set_dict = {}

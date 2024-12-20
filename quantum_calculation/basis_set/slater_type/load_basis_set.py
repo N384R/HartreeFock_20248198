@@ -4,6 +4,7 @@ import numpy as np
 
 def load_basis_set(basis_set_name):
     '''Load basis set from a file and store it in a dictionary.'''
+
     base_dir = os.path.dirname(__file__)
     file_path = os.path.join(base_dir, basis_set_name)
     basis_set_dict = {}
@@ -18,7 +19,7 @@ def load_basis_set(basis_set_name):
                 element, charge = data[1], int(data[2])
                 basis_set_dict[element] = {'charge': charge, 'basis': {}}
             elif data[0].isalpha():
-                orbital_type = data[0]
+                orbital_type = f'{data[0]}{data[1]}'
                 if orbital_type not in basis_set_dict[element]:
                     basis_set_dict[element]['basis'][orbital_type] = []
             else:
