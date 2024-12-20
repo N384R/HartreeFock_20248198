@@ -214,7 +214,7 @@ class HartreeFock:
             nuclear_repulsion += zi * zj / rij
         return nuclear_repulsion.round(6)
 
-    def __hartree_fock(self):
+    def __rhf(self):
         # Initialize the parameters
         print("Preforming SCF calculation...")
         n = len(self.basis_functions['alpha'])  # Number of basis functions
@@ -284,10 +284,95 @@ class HartreeFock:
 
         return total_energy, C
 
-    def hartree_fock(self):
-        '''Perform Hartree-Fock calculation.'''
+    def __rohf(self):
+        # Initialize the parameters
+        print("Preforming SCF calculation...")
+        n = len(self.basis_functions['alpha'])  # Number of basis functions
+        max_iter = 100
+        convergence_threshold = 1e-6
 
-        return self.__hartree_fock()
+        # Retrieve matrices
+        S = self.overlap
+        T = self.kinetic
+        V = self.nuclear_attraction
+        G = self.two_electron
+        nucl_rep = self.nuclear_repulsion
+
+        # Core Hamiltonian
+        H_core = T + V
+
+        # Orthogonalization matrix (S^-1/2)
+        S_eigvals, S_eigvecs = np.linalg.eigh(S)
+        S_inv_sqrt = S_eigvecs @ np.diag(1 / np.sqrt(S_eigvals)) @ S_eigvecs.T
+
+        # Initialize the density matrix
+        P_closed = np.zeros((n, n))
+        P_open = np.zeros((n, n))
+
+        num_closed = 0
+        num_open = 2
+
+        # SCF iterations
+        energy = 0.0
+        for iteration in range(max_iter):
+            print(f"Iteration {iteration + 1}...", end='\r', flush=True)
+
+            # Build the Fock matrix
+            F = H_core.copy()
+            for i, j, k, l in product(range(n), repeat=4):
+                P_total = P_closed + P_open
+                F[i, j] += P_total[k, l] * (2 * G[i, j, k, l] - G[i, l, k, j])
+                F[i, j] += 0.5 * P_open[k, l] * G[i, l, k, j]
+
+            # Diagonalize the Fock matrix
+            F_prime = S_inv_sqrt @ F @ S_inv_sqrt
+            eigvals, eigvecs = np.linalg.eigh(F_prime)
+
+            # eigenvectors to the original basis
+            C = S_inv_sqrt @ eigvecs
+
+            # update the density matrix
+            P_new_closed = np.zeros_like(P_closed)
+            P_new_open = np.zeros_like(P_open)
+
+            for i in range(num_closed // 2):
+                P_new_closed += 2 * np.outer(C[:, i], C[:, i])
+
+            for i in range(num_closed // 2, num_closed // 2 + num_open):
+                P_new_open += np.outer(C[:, i], C[:, i])
+
+            P_total_new = P_new_closed + P_new_open
+
+            # Calculate the electronic energy
+            electronic_energy = 0.5 * np.sum(P_total_new * (H_core + F))
+
+            # Check convergence
+            if np.abs(electronic_energy - energy) < convergence_threshold:
+                print(f"SFC converged after {iteration + 1} iterations.")
+                break
+
+            # Update the density matrix and energy
+            P_closed = P_new_closed
+            P_open = P_new_open
+            energy = electronic_energy
+
+        else:
+            print("SCF did not converge within the maximum number of iterations.")
+
+        # Total energy
+        total_energy = energy + nucl_rep
+        self.energy = total_energy
+        self.eigenvectors = C
+
+        return total_energy, C
+
+    def rhf(self):
+        '''Perform Restricted Hartree-Fock calculation.'''
+        return self.__rhf()
+
+    def rohf(self):
+        '''Perform Restricted Open-Shell Hartree-Fock calculation.'''
+        return self.__rohf()
 
 
 if __name__ == "__main__":
