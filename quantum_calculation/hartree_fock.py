@@ -12,10 +12,13 @@ class HartreeFock:
     molecule (str): Molecule string.
     basis_set (BasisSet): Basis set object.
     overlap (np.ndarray): Overlap matrix.
-    one_electron (np.ndarray): One-electron matrix.
-    two_electron (np.ndarray): Two-electron matrix.
-    energy (float): Energy of the molecule.
-    eigenvectors (np.ndarray): Eigenvectors of the molecule.
+    kinetic (np.ndarray): Kinetic energy matrix.
+    nuclear_attraction (np.ndarray): Nuclear attraction matrix.
+    two_electron (np.ndarray): Two-electron repulsion matrix.
+    energy_nucl (float): Nuclear repulsion energy.
+    energy_elec (float): Electronic energy.
+    energy_total (float): Total energy.
+    eigenvectors (np.ndarray): Molecular orbitals.
     '''
 
     def __init__(self, molecule, basis_set_name, spin=0):
@@ -26,19 +29,19 @@ class HartreeFock:
         self.energy_total = None
         self.eigenvectors = None
 
-        self.coordinates = self.set_coordinates(molecule)
+        self.coordinates = self.set_coordinates()
         self.basis_functions = self.set_basis_function()
         self.overlap = self.calculate_overlap()
         self.kinetic = self.calculate_kinetic()
         self.nuclear_attraction = self.calculate_nuclear_attraction()
         self.two_electron = self.calculate_electron_repulsion()
-        self.nuclear_repulsion = self.calculate_nuclear_repulsion()
+        self.energy_nucl = self.calculate_nuclear_repulsion()
 
-    def set_coordinates(self, molecule):
+    def set_coordinates(self):
         '''Parse the molecule string and return the coordinates of the atoms.'''
 
         coordinates = []
-        for atom in molecule.split(';'):
+        for atom in self.molecule.split(';'):
             symbol = atom.strip().split()[0]
             x, y, z = map(float, atom.split()[1:])
             coordinates.append({'symbol': symbol, 'coord': (x, y, z)})
@@ -224,8 +227,8 @@ class HartreeFock:
         S = self.overlap
         T = self.kinetic
         V = self.nuclear_attraction
-        G = self.two_electron
-        nucl_rep = self.nuclear_repulsion
+        two_el = self.two_electron
+        nucl_rep = self.energy_nucl
 
         # Core Hamiltonian
         H_core = T + V
@@ -243,7 +246,9 @@ class HartreeFock:
             # Build the Fock matrix
             F = H_core.copy()
             for i, j, k, l in product(range(n), repeat=4):
-                F[i, j] += P[k, l] * (G[i, j, k, l] - G[i, l, k, j]/2)
+                J = two_el[i, j, k, l]
+                K = two_el[i, l, k, j]
+                F[i, j] += P[k, l] * (J - 0.5 * K)
 
             # Diagonalize the Fock matrix
             F_prime = S_inv_sqrt @ F @ S_inv_sqrt
@@ -297,8 +302,8 @@ class HartreeFock:
         S = self.overlap
         T = self.kinetic
         V = self.nuclear_attraction
-        G = self.two_electron
-        nucl_rep = self.nuclear_repulsion
+        two_el = self.two_electron
+        nucl_rep = self.energy_nucl
 
         # Core Hamiltonian
         H_core = T + V
@@ -313,7 +318,7 @@ class HartreeFock:
 
         num_electrons = sum(coord['charge'] for coord in self.coordinates)
         num_open = self.spin * 2
-        num_closed = (num_electrons - num_open) // 2
+        num_closed = num_electrons - num_open
 
         # SCF iterations
         energy = 0.0
@@ -321,8 +326,10 @@ class HartreeFock:
             # Build the Fock matrix
             F = H_core.copy()
             for i, j, k, l in product(range(n), repeat=4):
-                F[i, j] += P_closed[k, l] * (G[i, j, k, l] - G[i, l, k, j]/2)
-                F[i, j] += P_open[k, l] * (G[i, j, k, l] - G[i, l, k, j])
+                J = two_el[i, j, k, l]
+                K = two_el[i, l, k, j]
+                F[i, j] += P_closed[k, l] * (J - 0.5 * K)
+                F[i, j] += P_open[k, l] * (J - K)
 
             # Diagonalize the Fock matrix
             F_prime = S_inv_sqrt @ F @ S_inv_sqrt
@@ -334,10 +341,10 @@ class HartreeFock:
             P_new_closed = np.zeros_like(P_closed)
             P_new_open = np.zeros_like(P_open)
 
-            for i in range(num_closed):
+            for i in range(num_closed//2):
                 P_new_closed += 2 * np.outer(C[:, i], C[:, i])
 
-            for i in range(num_closed, num_closed + num_open):
+            for i in range(num_closed//2, num_closed//2 + num_open):
                 P_new_open += np.outer(C[:, i], C[:, i])
 
             P_total_new = P_new_closed + P_new_open
